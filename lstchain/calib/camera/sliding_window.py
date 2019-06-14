@@ -1,4 +1,5 @@
 import numpy as np
+import math
 
 class SlidingWindow:
     
@@ -11,7 +12,7 @@ class SlidingWindow:
         self.num_pixels = 1855
         self.ind = np.arange(2, 38, 1)
 
-    def set_center(self, waveforms, oneside_width):
+    def set_slidecenter(self, waveforms, oneside_width):
 
         full_width = oneside_width * 2 + 1
         peakpos = np.argmax(waveforms, axis = 2)
@@ -29,19 +30,61 @@ class SlidingWindow:
 
         return window_center
 
-    def set_window(self, center, width):
+    def set_window(self, center, fwidth, bwidth):
 
-        window = (self.ind >= center[..., None] - width) & (self.ind <= center[..., None] + width)
+        window = (self.ind >= center[..., None] - fwidth) & (self.ind <= center[..., None] + bwidth)
 
         return window
 
-    def calc_peak_slice(waveforms, center, width):
+    def calc_peak_slice(self, waveforms, center, fwidth, bwidth):
 
-        region = set_window(center, width)
-        windowed = waveforms * region
-        peak_slice = np.average(ind, axis = 2, weights = windowed)
+        window = self.set_window(center = center, fwidth = fwidth, bwidth = bwidth)
+        windowed = waveforms * window
 
-        return peak_slice
+        if np.any(np.sum(windowed, axis = 2) == 0):
+
+            return False
+
+        else:
+
+            inds = np.zeros((self.num_gains, self.num_pixels, self.ind.shape[0]))
+            inds[:, :] = self.ind
+            peak_time = np.average(inds, axis = 2, weights = windowed)
+
+            return peak_time
+
+    def timing_integrate(self, waveforms, timing, width):
+
+        half_width = width / 2
+        left_edge = timing - half_width
+        right_edge = timing + half_width
+        left_inner = np.ceil(left_edge)
+        right_inner = np.floor(right_edge)
+        inner_window = (self.ind >= left_inner[..., None]) & (self.ind <= right_inner[..., None])
+        inner_sum = np.sum(waveforms * inner_window, axis = 2)
+        left_outer_window = self.set_window(left_inner, 0, 0)
+        left_outer_time = left_inner - left_edge
+        left_outer_amp = np.sum(waveforms * left_outer_window, axis = 2)
+        left_outer = left_outer_amp * left_outer_time
+        right_outer_window = self.set_window(right_inner, 0, 0)
+        right_outer_time = right_inner - right_edge
+        right_outer_amp = np.sum(waveforms * right_outer_window, axis = 2)
+        right_outer = right_outer_amp * right_outer_time
+        charge = inner_sum + left_outer + right_outer
+
+        return charge, left_edge, right_edge
+
+    def subtract_offset(self, waveforms, shift):
+
+            offset_width = 5
+            peakpos = np.argmax(waveforms, axis = 2)
+            shifted = peakpos - shift
+            offset_window = self.set_window(shifted, offset_width - 1, 0)
+            windowed = waveforms * offset_window
+            offset = np.sum(windowed, axis = 2)/ offset_width
+            subtracted = waveforms - offset[:, :, np.newaxis]
+
+            return subtracted
 
         
         
