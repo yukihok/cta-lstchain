@@ -1,7 +1,7 @@
 import numpy as np
 import math
 
-class SlidingWindow:
+class Integrators:
     
     def __init__(self, tel_id):
         
@@ -35,6 +35,29 @@ class SlidingWindow:
         window = (self.ind >= center[..., None] - fwidth) & (self.ind <= center[..., None] + bwidth)
 
         return window
+
+    def sliding_integration(self, waveforms, oneside_width):
+
+        center = self.set_slidecenter(waveforms, oneside_width)
+        window = self.set_window(center, fwidth = oneside_width, bwidth = oneside_width)
+        windowed = waveforms * window
+        charge = np.sum(windowed, axis = 2)
+
+        return windowed, charge
+
+
+    def trapezoid_integration(self, waveforms, center, fwidth, bwidth):
+
+        inner_window = self.set_window(center, fwidth + 1, bwidth)
+        edge_window = window = (self.ind == center[..., None] - fwidth) & (self.ind == center[..., None] + bwidth + 1)
+        inner_windowed = waveforms * inner_window
+        edge_windowed = waveforms * edge_window
+        total_windowed = inner_windowed + edge_windowed
+        inner_sum = np.sum(inner_windowed, axis = 2)
+        edge_sum = np.sum(edge_windowed, axis = 2) / 2
+        charge = inner_sum + edge_sum
+
+        return total_windowed, charge
 
     def calc_peak_slice(self, waveforms, center, fwidth, bwidth):
 
@@ -78,8 +101,8 @@ class SlidingWindow:
 
             offset_width = 5
             peakpos = np.argmax(waveforms, axis = 2)
-            shifted = peakpos - shift
-            offset_window = self.set_window(shifted, offset_width - 1, 0)
+            shifted = peakpos + shift
+            offset_window = self.set_window(shifted, 0, offset_width)
             windowed = waveforms * offset_window
             offset = np.sum(windowed, axis = 2)/ offset_width
             subtracted = waveforms - offset[:, :, np.newaxis]
