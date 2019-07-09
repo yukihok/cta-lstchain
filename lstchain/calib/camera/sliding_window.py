@@ -3,22 +3,26 @@ import math
 
 class Integrators:
     
-    def __init__(self, tel_id):
+    def __init__(self, tel_id, data_type):
         
         self.tel_id = tel_id
-        self.start_offset = 5
+        self.start_offset = 6
         self.slide_ite = 10
         self.num_gains = 2
         self.num_pixels = 1855
-        self.ind = np.arange(2, 38, 1)
+        self.data_type = data_type
+        if self.data_type == 'real':
+            self.ind = np.arange(2, 38, 1)  # for real data
+        if self.data_type == 'mc':
+            self.ind = np.arange(0, 40, 1)  # for MC data
 
     def set_slidecenter(self, waveforms, oneside_width):
 
         full_width = oneside_width * 2 + 1
         peakpos = np.argmax(waveforms, axis = 2)
         slide_start = peakpos - self.start_offset
-        slide_max = np.zeros((self.num_gains, self.num_pixels))
-        window_center = np.zeros((self.num_gains, self.num_pixels))
+        slide_max = np.zeros((self.num_gains, self.num_pixels), dtype=np.int8)
+        window_center = np.zeros((self.num_gains, self.num_pixels), dtype=np.int8)
         for num_slide in range(0, self.slide_ite):
             front = slide_start + num_slide
             end = front + full_width
@@ -48,8 +52,8 @@ class Integrators:
 
     def trapezoid_integration(self, waveforms, center, fwidth, bwidth):
 
-        inner_window = self.set_window(center, fwidth + 1, bwidth)
-        edge_window = window = (self.ind == center[..., None] - fwidth) & (self.ind == center[..., None] + bwidth + 1)
+        inner_window = self.set_window(center, fwidth - 1, bwidth - 1)
+        edge_window = np.logical_or((self.ind == center[..., None] - fwidth), (self.ind == center[..., None] + bwidth))
         inner_windowed = waveforms * inner_window
         edge_windowed = waveforms * edge_window
         total_windowed = inner_windowed + edge_windowed
