@@ -51,52 +51,70 @@ def calc_dt(event, lst_r0, mod, gain, pix, last_time_read, charge_list, dt_list)
                 last_time_read[mod, gain, pix, int(cell) % 4096] = time_now[..., None]
 
 @jit(parallel=True)
-def spike_judge(old_first_cap, first_cap):
+def spike_judge(pix, old_first_cap, first_cap):
 
     roisize = 40
     size1drs = 1024
-    spike = 0
+    spike = -1
     old_finish_pos = int((old_first_cap + roisize - 1)%size1drs)
     first_cell = int(first_cap % size1drs)
+    channel = int(first_cap//size1drs + 1)
+    pos = -1
 
     spikepos_A1 = old_finish_pos  # pattern 1
     spikepos_A2 = int((old_finish_pos - 1)%size1drs)  # pattern 2
+
     if first_cell + 2 < spikepos_A1 and first_cell + 38 > spikepos_A1:
-        spike = 1
+        if old_finish_pos < 512 and spikepos_A1 < 512:
+            if channel % 2 == 0:
+                spike = 1
+                pos = spikepos_A1
     if first_cell + 2 < spikepos_A2 and first_cell + 38 > spikepos_A2:
-        spike = 1
+        if old_finish_pos < 512 and spikepos_A2 < 512:
+            if channel % 2 == 0:
+                spike = 1
+                pos = spikepos_A2
 
     spikepos_B1 = int((1021 - old_finish_pos)%size1drs)
     spikepos_B2 = int((1022 - old_finish_pos)%size1drs)
-    if first_cell + 2 < spikepos_B1 and first_cell + 38 > spikepos_B1:
-        spike = 1
-    if first_cell + 2 < spikepos_B2 and first_cell + 38 > spikepos_B2:
-        spike = 1
+    if first_cell + 2 <= spikepos_B1 and first_cell + 38 > spikepos_B1:
+        if old_finish_pos < 512 and spikepos_B1 > 512:
+            if channel % 2 == 0:
+                spike = 2
+                pos = spikepos_B2
+    if first_cell + 2 <= spikepos_B2 and first_cell + 38 > spikepos_B2:
+        if old_finish_pos < 512 and spikepos_B2 > 512:
+            if channel % 2 == 0:
+                spike = 2
+                pos = spikepos_B2
 
     spikepos_C = int((old_first_cap - 1)%size1drs)
-    if first_cell + 2 < spikepos_C and first_cell + 38 > spikepos_C:
-        spike = 1
+    if first_cell + 2 <= spikepos_C and first_cell + 38 > spikepos_C:
+        spike = 3
+        pos = spikepos_C
 
-    return spike
+    return spike, pos
 
+@jit(parallel=True)
+def spike_judge_bycap(pix, old_first_cap, cap_id):
 
-    '''
+    roisize = 40
+    size1drs = 1024
     old_finish_pos = int((old_first_cap + roisize - 1)%size1drs)
     old_finish_pos_next = int((old_finish_pos - 1) % size1drs)
     spikepos = int(cap_id % size1drs)
+    spike = -1
 
-    if even_channel(pix):
-        if old_finish_pos < 512 and spikepos < 512:
-            if (spikepos == old_finish_pos) or (spikepos == old_finish_pos_next):
-                return True
-        if old_finish_pos < 512 and spikepos > 512:
-            if (spikepos == old_finish_pos) or (spikepos == old_finish_pos_next):
-                return True
+    if old_finish_pos < 512 and spikepos < 512:
+        if (spikepos == old_finish_pos) or (spikepos == old_finish_pos_next):
+            spike = 1
+    if old_finish_pos < 512 and spikepos > 512:
+        if (spikepos == old_finish_pos) or (spikepos == old_finish_pos_next):
+            spike = 2
     if spikepos == (old_first_cap - 1) % size1drs:
-        return True
-    else:
-        return False
-    '''
+        spike = 3
+
+    return spike
 
 def even_channel(pix):
 
@@ -111,7 +129,7 @@ def judge_spike_A(old_finish_cap, pix, cap_id):
     size4drs = 4096
     size1drs = 1024
     if even_channel(pix):
-        if old_finish_cap % size4drs < size1drs/2 and cap_id % size4drs < size1drs/2:
+        if old_finish_cap % size1drs < size1drs/2 and cap_id % size1drs < size1drs/2:
             if (cap_id % size1drs == old_finish_cap % size1drs) or (cap_id % size1drs == (old_finish_cap - 1)% size1drs):
                 return True
 
@@ -121,7 +139,7 @@ def judge_spike_B(old_finish_cap, pix, cap_id):
     size4drs = 4096
     size1drs = 1024
     if even_channel(pix):
-        if old_finish_cap % size4drs < size1drs/2 and cap_id % size4drs > size1drs/2:
+        if old_finish_cap % size1drs < size1drs/2 and cap_id % size1drs > size1drs/2:
             if (cap_id % size1drs == 1021 - old_finish_cap % size1drs) or (cap_id % size1drs == 1022 - old_finish_cap % size1drs):
                 return True
 
