@@ -14,7 +14,7 @@ def calc_dt(event, lst_r0, mod, gain, pix, last_time_read, charge_list, dt_list)
     
     pixel = expected_pixel_id[mod*7 + pix]
 
-    for icell in prange(0, 40):
+    for icell in prange(2, 38):
         cap_id = int((icell + fc) % size4drs)
 
         last_time_read[mod, gain, pix, cap_id]
@@ -29,12 +29,9 @@ def calc_dt(event, lst_r0, mod, gain, pix, last_time_read, charge_list, dt_list)
             
     first_cap = int(fc)
 
-    if first_cap + 40 < 4096:
-        last_time_read[mod, gain, pix, first_cap:(first_cap + 39)] = time_now[..., None]
-    else:
-        for icell in prange(0, 39):
-            cap_id = int((icell + fc) % size4drs)
-            last_time_read[mod, gain, pix, cap_id] = time_now
+    for icell in prange(0, 39):
+        cap_id = int((icell + fc) % size4drs)
+        last_time_read[mod, gain, pix, cap_id] = time_now
 
     # now the magic of Dragon,
     # if the ROI is in the last quarter of each DRS4
@@ -53,25 +50,62 @@ def calc_dt(event, lst_r0, mod, gain, pix, last_time_read, charge_list, dt_list)
             for cell in range(first_cap + 1024, (ring + 2) * 1024):
                 last_time_read[mod, gain, pix, int(cell) % 4096] = time_now[..., None]
 
-
-def spike_judge(event, old_first_cap, mod, gain, pix, cap_id):
+@jit(parallel=True)
+def spike_judge(old_first_cap, first_cap):
 
     roisize = 40
-    size4drs = 4096
-    old_finish_cap = (old_first_cap + roisize - 1)%size4drs
-    current_first_cap = lst_r0._get_first_capacitor(event, mod)[gain, pix]
+    size1drs = 1024
+    spike = 0
+    old_finish_pos = int((old_first_cap + roisize - 1)%size1drs)
+    first_cell = int(first_cap % size1drs)
 
-    if judge_spike_A(old_finish_cap, pix, cap_id):
+    spikepos_A1 = old_finish_pos  # pattern 1
+    spikepos_A2 = int((old_finish_pos - 1)%size1drs)  # pattern 2
+    if first_cell + 2 < spikepos_A1 and first_cell + 38 > spikepos_A1:
+        spike = 1
+    if first_cell + 2 < spikepos_A2 and first_cell + 38 > spikepos_A2:
+        spike = 1
+
+    spikepos_B1 = int((1021 - old_finish_pos)%size1drs)
+    spikepos_B2 = int((1022 - old_finish_pos)%size1drs)
+    if first_cell + 2 < spikepos_B1 and first_cell + 38 > spikepos_B1:
+        spike = 1
+    if first_cell + 2 < spikepos_B2 and first_cell + 38 > spikepos_B2:
+        spike = 1
+
+    spikepos_C = int((old_first_cap - 1)%size1drs)
+    if first_cell + 2 < spikepos_C and first_cell + 38 > spikepos_C:
+        spike = 1
+
+    return spike
+
+
+    '''
+    old_finish_pos = int((old_first_cap + roisize - 1)%size1drs)
+    old_finish_pos_next = int((old_finish_pos - 1) % size1drs)
+    spikepos = int(cap_id % size1drs)
+
+    if even_channel(pix):
+        if old_finish_pos < 512 and spikepos < 512:
+            if (spikepos == old_finish_pos) or (spikepos == old_finish_pos_next):
+                return True
+        if old_finish_pos < 512 and spikepos > 512:
+            if (spikepos == old_finish_pos) or (spikepos == old_finish_pos_next):
+                return True
+    if spikepos == (old_first_cap - 1) % size1drs:
         return True
+    else:
+        return False
+    '''
 
-    
 def even_channel(pix):
 
     if pix in [0, 1, 4, 5]:
-            return True
+        return True
     else:
         return False
 
+@jit
 def judge_spike_A(old_finish_cap, pix, cap_id):
 
     size4drs = 4096
@@ -81,6 +115,7 @@ def judge_spike_A(old_finish_cap, pix, cap_id):
             if (cap_id % size1drs == old_finish_cap % size1drs) or (cap_id % size1drs == (old_finish_cap - 1)% size1drs):
                 return True
 
+@jit
 def judge_spike_B(old_finish_cap, pix, cap_id):
 
     size4drs = 4096
@@ -90,6 +125,7 @@ def judge_spike_B(old_finish_cap, pix, cap_id):
             if (cap_id % size1drs == 1021 - old_finish_cap % size1drs) or (cap_id % size1drs == 1022 - old_finish_cap % size1drs):
                 return True
 
+@jit
 def judge_spike_C(old_first_cap, cap_id):
 
     size4drs = 4096

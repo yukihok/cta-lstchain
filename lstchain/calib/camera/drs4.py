@@ -8,16 +8,16 @@ __all__ = ['DragonPedestal']
 # "The sampler has 1024 capacitors per channel.
 # Four channels of a chip are cascaded to obtain deeper sampling depth with 4096 capacitors.
 # (https://arxiv.org/abs/1509.00548)
-size4drs = 4096
-
+siez4drs = 4096
 
 class DragonPedestal:
     high_gain = 0
     low_gain = 1
     n_gain = 2
     n_channel = 7
-
+    
     def __init__(self, tel_id, n_module):
+        self.size4drs = 4096
         self.tel_id = tel_id
         self.n_module = n_module
         self.n_pixels = n_module*self.n_channel # Each module has 7 channels (pixels)
@@ -42,6 +42,7 @@ class DragonPedestal:
     @jit(parallel=True)
     def _fill_pedestal_event_jit(waveform, expected_pixel_id, first_cap_array,
                                  meanped, numped, n_module):
+        size4drs = 4096
         roisize = 40
         for nr_module in prange(0, n_module):
             first_cap = first_cap_array[nr_module, :, :]
@@ -63,8 +64,8 @@ class DragonPedestal:
                             numped[gain, pixel, posads] += 1
 
     def finalize_pedestal(self):
-        if np.sum(self.numped==0) > 0:
-            raise RuntimeError("Not enough events to coverage all capacitor. "
+        if np.sum(self.numped < 10) > 0:
+            raise RuntimeError("Not enough statistics to obtain a pedestal table. "
                                "Please use more events to create pedestal file.")
         else:
             self.meanped = self.meanped / self.numped
