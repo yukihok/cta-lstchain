@@ -11,21 +11,22 @@ def calc_dt(event, lst_r0, mod, gain, pix, last_time_read, charge_list, dt_list)
     time_now = event.lst.tel[tel_id].evt.local_clock_counter[mod]
     fc = lst_r0._get_first_capacitor(event, mod)[gain, pix]
     expected_pixel_id = event.lst.tel[tel_id].svc.pixel_ids
-    current_dt = []
+    current_charge = np.zeros(36)
+    current_dt = np.zeros(36)
     
     pixel = expected_pixel_id[mod*7 + pix]
 
     for icell in prange(2, 38):
         cap_id = int((icell + fc) % size4drs)
 
-        last_time_read[mod, gain, pix, cap_id]
         if last_time_read[mod, gain, pix, cap_id] > 0:
             time_diff = time_now - last_time_read[mod, gain, pix, cap_id]
             time_diff_ms = time_diff / (133e3)
 
-            charge_list.append(event.r1.tel[tel_id].waveform[gain, pix, icell])
+            charge_list.append(event.r1.tel[tel_id].waveform[gain, pixel, icell])
             dt_list.append(time_diff_ms)
-            current_dt.append(time_diff_ms)
+            current_charge[icell-2] = event.r1.tel[tel_id].waveform[gain, pixel, icell]
+            current_dt[icell-2] = time_diff_ms
             #print(charge_list)
             #print(dt_list)
             
@@ -52,7 +53,7 @@ def calc_dt(event, lst_r0, mod, gain, pix, last_time_read, charge_list, dt_list)
             for cell in range(first_cap + 1024, (ring + 2) * 1024):
                 last_time_read[mod, gain, pix, int(cell) % 4096] = time_now[..., None]
 
-    return current_dt
+    return current_charge, current_dt
 
 @jit(parallel=True)
 def spike_judge(old_first_cap, first_cap):
