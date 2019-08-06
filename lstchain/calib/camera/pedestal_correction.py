@@ -11,6 +11,7 @@ def calc_dt(event, lst_r0, mod, gain, pix, last_time_read, charge_list, dt_list)
     time_now = event.lst.tel[tel_id].evt.local_clock_counter[mod]
     fc = lst_r0._get_first_capacitor(event, mod)[gain, pix]
     expected_pixel_id = event.lst.tel[tel_id].svc.pixel_ids
+    current_dt = []
     
     pixel = expected_pixel_id[mod*7 + pix]
 
@@ -24,6 +25,7 @@ def calc_dt(event, lst_r0, mod, gain, pix, last_time_read, charge_list, dt_list)
 
             charge_list.append(event.r1.tel[tel_id].waveform[gain, pix, icell])
             dt_list.append(time_diff_ms)
+            current_dt.append(time_diff_ms)
             #print(charge_list)
             #print(dt_list)
             
@@ -50,8 +52,10 @@ def calc_dt(event, lst_r0, mod, gain, pix, last_time_read, charge_list, dt_list)
             for cell in range(first_cap + 1024, (ring + 2) * 1024):
                 last_time_read[mod, gain, pix, int(cell) % 4096] = time_now[..., None]
 
+    return current_dt
+
 @jit(parallel=True)
-def spike_judge(pix, old_first_cap, first_cap):
+def spike_judge(old_first_cap, first_cap):
 
     roisize = 40
     size1drs = 1024
@@ -64,34 +68,36 @@ def spike_judge(pix, old_first_cap, first_cap):
     spikepos_A1 = old_finish_pos  # pattern 1
     spikepos_A2 = int((old_finish_pos - 1)%size1drs)  # pattern 2
 
-    if first_cell + 2 < spikepos_A1 and first_cell + 38 > spikepos_A1:
-        if old_finish_pos < 512 and spikepos_A1 < 512:
-            if channel % 2 == 0:
-                spike = 1
-                pos = spikepos_A1
-    if first_cell + 2 < spikepos_A2 and first_cell + 38 > spikepos_A2:
+    if (first_cell + 2)%size1drs < spikepos_A1 and (first_cell + 38)%size1drs > spikepos_A1:
+        spike_cell = int((spikepos_A1 - first_cell)%size1drs)
+        if old_finish_pos < 512:
+            spike = 1
+            pos = spike_cell
+    if (first_cell + 2)%size1drs < spikepos_A2 and (first_cell + 38)%size1drs > spikepos_A2:
+        spike_cell = int((spikepos_A2 - first_cell)%size1drs)
         if old_finish_pos < 512 and spikepos_A2 < 512:
-            if channel % 2 == 0:
-                spike = 1
-                pos = spikepos_A2
+            spike = 1
+            pos = spike_cell
+
 
     spikepos_B1 = int((1021 - old_finish_pos)%size1drs)
     spikepos_B2 = int((1022 - old_finish_pos)%size1drs)
-    if first_cell + 2 <= spikepos_B1 and first_cell + 38 > spikepos_B1:
+    if (first_cell + 2)%size1drs <= spikepos_B1 and (first_cell + 38)%size1drs > spikepos_B1:
+        spike_cell = int((spikepos_B1 - first_cell) % size1drs)
         if old_finish_pos < 512 and spikepos_B1 > 512:
-            if channel % 2 == 0:
-                spike = 2
-                pos = spikepos_B2
-    if first_cell + 2 <= spikepos_B2 and first_cell + 38 > spikepos_B2:
+            spike = 2
+            pos = spike_cell
+    if (first_cell + 2)%size1drs <= spikepos_B2 and (first_cell + 38)%size1drs > spikepos_B2:
+        spike_cell = int((spikepos_B2 - first_cell) % size1drs)
         if old_finish_pos < 512 and spikepos_B2 > 512:
-            if channel % 2 == 0:
-                spike = 2
-                pos = spikepos_B2
+            spike = 2
+            pos = spike_cell
 
     spikepos_C = int((old_first_cap - 1)%size1drs)
-    if first_cell + 2 <= spikepos_C and first_cell + 38 > spikepos_C:
+    if (first_cell + 2)%size1drs <= spikepos_C and (first_cell + 38)%size1drs > spikepos_C:
+        spike_cell = int((spikepos_C - first_cell) % size1drs)
         spike = 3
-        pos = spikepos_C
+        pos = spike_cell
 
     return spike, pos
 

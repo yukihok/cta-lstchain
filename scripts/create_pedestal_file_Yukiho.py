@@ -53,20 +53,21 @@ def fill_pedestal_without_dt_corr(waveform, expected_pixel_id, local_clock_list,
                     if last_time_array[nr_module, gain, pix, cap_id] > 0:
                         time_diff = time_now - last_time_array[nr_module, gain, pix, cap_id]
                         time_diff_ms = time_diff / (133.e3)
-                        '''
+
                         # my algorithm
                         if time_diff_ms > 100:
                             val = waveform[gain, pixel, cell]
                             meanped[gain, pixel, cap_id] += val
-                            numped[gain, pix, cap_id] += 1
-                        '''
+                            numped[gain, pixel, cap_id] += 1
 
+                    '''
                         if time_diff_ms < 100:
                             #samples[icell] = samples[icell] - (23.03 * np.power(time_diff_ms, -0.25) - 9.73)
                             waveform[gain, pixel, cell] -= ped_time(time_diff_ms)
 
                     meanped[gain, pixel, cap_id] += waveform[gain, pixel, cell]
                     numped[gain, pixel, cap_id] += 1
+                    '''
 
                 if first_cap + 40 < 4096:
                     last_time_array[nr_module, gain, pix, first_cap:(first_cap + 39)] = time_now
@@ -168,7 +169,7 @@ if __name__ == '__main__':
     pedestal.finalize_pedestal()
 
     primaryhdu = fits.PrimaryHDU(ev.lst.tel[tel_id].svc.pixel_ids)
-    secondhdu = fits.ImageHDU(np.int16(pedestal.meanped))
+    secondhdu = fits.ImageHDU(pedestal.meanped)
 
     hdulist = fits.HDUList([primaryhdu, secondhdu])
     hdulist.writeto(args.output_file)
