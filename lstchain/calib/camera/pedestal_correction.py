@@ -68,37 +68,46 @@ def spike_judge(old_first_cap, first_cap):
 
     spikepos_A1 = old_finish_pos  # pattern 1
     spikepos_A2 = int((old_finish_pos - 1)%size1drs)  # pattern 2
-
-    if (first_cell + 2)%size1drs < spikepos_A1 and (first_cell + 38)%size1drs > spikepos_A1:
+    roi_right = (first_cell + 38)%size1drs
+    if (roi_right - 36) <= spikepos_A1 and roi_right > spikepos_A1:
         spike_cell = int((spikepos_A1 - first_cell)%size1drs)
         if old_finish_pos < 512:
             spike = 1
             pos = spike_cell
-    if (first_cell + 2)%size1drs < spikepos_A2 and (first_cell + 38)%size1drs > spikepos_A2:
+    if  (roi_right - 36) <= spikepos_A2 and roi_right > spikepos_A2:
         spike_cell = int((spikepos_A2 - first_cell)%size1drs)
         if old_finish_pos < 512 and spikepos_A2 < 512:
             spike = 1
             pos = spike_cell
 
-
     spikepos_B1 = int((1021 - old_finish_pos)%size1drs)
     spikepos_B2 = int((1022 - old_finish_pos)%size1drs)
-    if (first_cell + 2)%size1drs <= spikepos_B1 and (first_cell + 38)%size1drs > spikepos_B1:
+    roi_left = (first_cell + 2)%size1drs
+    if roi_left <= spikepos_B1 and (roi_left + 36) > spikepos_B1:
         spike_cell = int((spikepos_B1 - first_cell) % size1drs)
         if old_finish_pos < 512 and spikepos_B1 > 512:
             spike = 2
             pos = spike_cell
-    if (first_cell + 2)%size1drs <= spikepos_B2 and (first_cell + 38)%size1drs > spikepos_B2:
+    if roi_left <= spikepos_B2 and (roi_left + 36) > spikepos_B2:
         spike_cell = int((spikepos_B2 - first_cell) % size1drs)
         if old_finish_pos < 512 and spikepos_B2 > 512:
             spike = 2
             pos = spike_cell
 
     spikepos_C = int((old_first_cap - 1)%size1drs)
-    if (first_cell + 2)%size1drs <= spikepos_C and (first_cell + 38)%size1drs > spikepos_C:
-        spike_cell = int((spikepos_C - first_cell) % size1drs)
-        spike = 3
-        pos = spike_cell
+    if spikepos_C < 512:
+        roi_right = (first_cell + 38) % size1drs
+        if (roi_right - 36) <= spikepos_C and roi_right > spikepos_C:
+            spike_cell = int((spikepos_C - first_cell) % size1drs)
+            spike = 3
+            pos = spike_cell
+
+    if spikepos_C >= 512:
+        roi_left = (first_cell + 2) % size1drs
+        if roi_left <= spikepos_C and (roi_left + 36) > spikepos_C:
+            spike_cell = int((spikepos_C - first_cell) % size1drs)
+            spike = 3
+            pos = spike_cell
 
     return spike, pos
 
