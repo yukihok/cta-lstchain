@@ -29,8 +29,6 @@ def calc_dt(event, lst_r0, mod, gain, pix, last_time_read, charge_list, dt_list)
             current_dt[icell-2] = time_diff_ms
             #print(charge_list)
             #print(dt_list)
-            
-    first_cap = int(fc)
 
     for icell in prange(0, 39):
         cap_id = int((icell + fc) % size4drs)
@@ -41,7 +39,7 @@ def calc_dt(event, lst_r0, mod, gain, pix, last_time_read, charge_list, dt_list)
     # for even channel numbers extra 12 slices are read in a different place
     # code from Takayuki & Julian
     if pix % 2 == 0:
-        first_cap = fc
+        first_cap = int(fc)
 
         if first_cap % 1024 > 766 and first_cap % 1024 < 1012:
             start = int(first_cap) + 1024 - 1
@@ -55,6 +53,28 @@ def calc_dt(event, lst_r0, mod, gain, pix, last_time_read, charge_list, dt_list)
 
     return current_charge, current_dt
 
+
+@jit
+def find_spikes(event, old_fc, fc, mod, gain, pix):
+    tel_id = 0
+    num_modules = 265
+    size4drs = 4096
+
+    expected_pixel_id = event.lst.tel[tel_id].svc.pixel_ids
+    pixel = expected_pixel_id[mod * 7 + pix]
+    first_cap = int(fc[mod, gain, pix])
+    old_first_cap = int(old_fc[mod, gain, pix])
+    spike, pos = spike_judge(old_first_cap, first_cap)
+    spiky = -1
+    if spike != -1:
+        # print('spike type', spike, 'cell', pos)
+        # print('event:{} mod:{} gain:{} pix:{}'.format(event.count, mod, gain, pix))
+        # print('old_fc:{}({}) current_fc:{}({}) channel:{}'.format(old_first_cap, old_first_cap%1024, first_cap, first_cap%1024, first_cap//1024 + 1))
+        spiky = 1
+
+    return spiky
+
+
 @jit(parallel=True)
 def spike_judge(old_first_cap, first_cap):
 
@@ -63,7 +83,6 @@ def spike_judge(old_first_cap, first_cap):
     spike = -1
     old_finish_pos = int((old_first_cap + roisize - 1)%size1drs)
     first_cell = int(first_cap % size1drs)
-    channel = int(first_cap//size1drs + 1)
     pos = -1
 
     spikepos_A1 = old_finish_pos  # pattern 1
@@ -72,13 +91,15 @@ def spike_judge(old_first_cap, first_cap):
     if (roi_right - 36) <= spikepos_A1 and roi_right > spikepos_A1:
         spike_cell = int((spikepos_A1 - first_cell)%size1drs)
         if old_finish_pos < 512:
-            spike = 1
-            pos = spike_cell
+            if old_finish_pos % 2 == 0:
+                spike = 1
+                pos = spike_cell
     if  (roi_right - 36) <= spikepos_A2 and roi_right > spikepos_A2:
         spike_cell = int((spikepos_A2 - first_cell)%size1drs)
         if old_finish_pos < 512 and spikepos_A2 < 512:
-            spike = 1
-            pos = spike_cell
+            if old_finish_pos % 2 == 0:
+                spike = 1
+                pos = spike_cell
 
     spikepos_B1 = int((1021 - old_finish_pos)%size1drs)
     spikepos_B2 = int((1022 - old_finish_pos)%size1drs)
@@ -86,13 +107,15 @@ def spike_judge(old_first_cap, first_cap):
     if roi_left <= spikepos_B1 and (roi_left + 36) > spikepos_B1:
         spike_cell = int((spikepos_B1 - first_cell) % size1drs)
         if old_finish_pos < 512 and spikepos_B1 > 512:
-            spike = 2
-            pos = spike_cell
+            if old_finish_pos % 2 == 0:
+                spike = 2
+                pos = spike_cell
     if roi_left <= spikepos_B2 and (roi_left + 36) > spikepos_B2:
         spike_cell = int((spikepos_B2 - first_cell) % size1drs)
         if old_finish_pos < 512 and spikepos_B2 > 512:
-            spike = 2
-            pos = spike_cell
+            if old_finish_pos % 2 == 0:
+                spike = 2
+                pos = spike_cell
 
     spikepos_C = int((old_first_cap - 1)%size1drs)
     if spikepos_C < 512:
