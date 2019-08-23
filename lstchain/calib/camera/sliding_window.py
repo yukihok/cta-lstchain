@@ -53,9 +53,7 @@ class Integrators:
     def trapezoid_integration(self, waveforms, center, fwidth, bwidth):
 
         inner_window = self.set_window(center, fwidth - 1, bwidth - 1)
-        print(inner_window[0, 0])
         edge_window = np.logical_or((self.ind == center[..., None] - fwidth), (self.ind == center[..., None] + bwidth))
-        print(edge_window[0, 0])
         inner_windowed = waveforms * inner_window
         edge_windowed = waveforms * edge_window
         total_windowed = inner_windowed + edge_windowed

@@ -16,6 +16,7 @@ class DragonPedestal:
     low_gain = 1
     n_gain = 2
     n_channel = 7
+    size4drs=4096
 
     def __init__(self, tel_id, n_module):
         self.tel_id = tel_id
