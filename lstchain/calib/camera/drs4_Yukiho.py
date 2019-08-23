@@ -15,12 +15,7 @@ class DragonPedestal:
     low_gain = 1
     n_gain = 2
     n_channel = 7
-<<<<<<< HEAD
-    size4drs=4096
-
-=======
     
->>>>>>> 83386c62f8d504e4a3c2497a1ffd4fd232f1b22f
     def __init__(self, tel_id, n_module):
         self.size4drs = 4096
         self.tel_id = tel_id
@@ -69,7 +64,7 @@ class DragonPedestal:
                             numped[gain, pixel, posads] += 1
 
     def finalize_pedestal(self):
-        if np.sum(self.numped < 10) > 0:
+        if np.sum(self.numped < 5) > 0:
             raise RuntimeError("Not enough statistics to obtain a pedestal table. "
                                "Please use more events to create pedestal file.")
         else:
