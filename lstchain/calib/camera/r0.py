@@ -371,17 +371,9 @@ def ped_time(timediff):
     Coefficients from curve fitting to dragon test data
     at temperature 30 degC
     """
-<<<<<<< HEAD
-    #return 27.33 * np.power(timediff, -0.24) - 10.4
-    
-    '''
-    in the case of 40deg
-    '''
-    return (23.03 * np.power(timediff, -0.25) - 9.73)
-=======
+
     return 27.33 * np.power(timediff, -0.24) - 10.4
     #return (23.03 * np.power(timediff, -0.25) - 9.73)  # for 40degC
->>>>>>> 83386c62f8d504e4a3c2497a1ffd4fd232f1b22f
 
 @jit
 def interpolate_spike_A(waveform, gain, position, pixel):

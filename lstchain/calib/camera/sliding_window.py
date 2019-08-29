@@ -1,5 +1,6 @@
 import numpy as np
 import math
+from numba import jit
 
 class Integrators:
     
@@ -16,6 +17,7 @@ class Integrators:
         if self.data_type == 'mc':
             self.ind = np.arange(0, 40, 1)  # for MC data
 
+    @jit(parallel=True)
     def set_slidecenter(self, waveforms, oneside_width):
 
         full_width = oneside_width * 2 + 1

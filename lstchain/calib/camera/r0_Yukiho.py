@@ -117,7 +117,7 @@ class LSTR0Corrections(CameraR0Calibrator):
         self.low_gain = 1
 
         self.pedestal_value_array = np.zeros((self.n_gain, self.n_pix*self.n_module, self.size4drs+40), dtype=np.int16)
-        self.dt_params_array = np.zeros((self.n_gain, self.n_pix * self.n_module, 3))
+        self.dt_params_array = np.zeros((self.n_gain, self.n_module, self.n_pix, 3))
         self.first_cap_array = np.zeros((self.n_module, self.n_gain, self.n_pix))
 
         self.first_cap_time_lapse_array = np.zeros((self.n_module, self.n_gain, self.n_pix))
@@ -167,7 +167,7 @@ class LSTR0Corrections(CameraR0Calibrator):
         event.r1.tel[self.tel_id].trigger_time = event.r1.tel[self.tel_id].trigger_time
         event.r1.tel[self.tel_id].waveform = samples[:, :, :]
 
-    def time_lapse_corr(self, event, a, b, c):
+    def time_lapse_corr(self, event):
         """
         Perform time lapse baseline corrections.
         Fill the R1 container or
@@ -185,9 +185,7 @@ class LSTR0Corrections(CameraR0Calibrator):
         #If R1 container exist modifies it
         if isinstance(event.r1.tel[self.tel_id].waveform, np.ndarray):
             samples = event.r1.tel[self.tel_id].waveform
-            do_time_lapse_corr(samples, expected_pixel_id, local_clock_list,
-                               self.first_cap_time_lapse_array, self.last_reading_time_array, n_modules,
-                               a, b, c)
+            do_time_lapse_corr(samples, expected_pixel_id, local_clock_list, self.first_cap_time_lapse_array, self.last_reading_time_array, n_modules, self.dt_params_array)
             event.r1.tel[self.tel_id].trigger_type = event.r0.tel[self.tel_id].trigger_type
             event.r1.tel[self.tel_id].trigger_time = event.r0.tel[self.tel_id].trigger_time
             event.r1.tel[self.tel_id].waveform = samples[:, :, :]
@@ -294,6 +292,7 @@ class LSTR0Corrections(CameraR0Calibrator):
             content = params_data.read()
             lines = content.split('\n')
             for iline in lines:
+                print(iline)
                 module = int(iline.split()[0])
                 pix = int(iline.split()[1])
                 gain = int(iline.split()[2])
@@ -342,7 +341,7 @@ def subtract_pedestal_jit(event_waveform, expected_pixel_id, fc_cap, pedestal_va
     return waveform
 
 @jit(parallel=True)
-def do_time_lapse_corr(waveform, expected_pixel_id, local_clock_list, fc, last_time_array, number_of_modules):
+def do_time_lapse_corr(waveform, expected_pixel_id, local_clock_list, fc, last_time_array, number_of_modules, dt_params_array):
     """
     Numba function for time lapse baseline correction.
     Change waveform array.
@@ -353,7 +352,7 @@ def do_time_lapse_corr(waveform, expected_pixel_id, local_clock_list, fc, last_t
         for gain in prange(0, 2):
             for pix in prange(0, 7):
                 pixel = expected_pixel_id[nr_module*7 + pix]
-                dt_params = self.dt_params_array[gain, nr_module, pix]
+                dt_params = dt_params_array[gain, nr_module, pix]
                 for k in prange(0, 40):
                     posads = int((k + fc[nr_module, gain, pix]) % size4drs)
                     if last_time_array[nr_module, gain, pix, posads] > 0:
