@@ -80,6 +80,12 @@ class LSTR0Corrections(CameraR0Calibrator):
         help='Path to the LST pedestal binary file'
     ).tag(config=True)
 
+    dt_params_path = Unicode(
+        '',
+        allow_none=True,
+        help='Path to a dt curve parameters file'
+    ).tag(config=True)
+
     tel_id = Int(
         0,
         help='id of the telescope to calibrate'
@@ -111,6 +117,7 @@ class LSTR0Corrections(CameraR0Calibrator):
         self.low_gain = 1
 
         self.pedestal_value_array = np.zeros((self.n_gain, self.n_pix*self.n_module, self.size4drs+40), dtype=np.int16)
+        self.dt_params_array = np.zeros((self.n_gain, self.n_pix * self.n_module, 3))
         self.first_cap_array = np.zeros((self.n_module, self.n_gain, self.n_pix))
 
         self.first_cap_time_lapse_array = np.zeros((self.n_module, self.n_gain, self.n_pix))
@@ -282,6 +289,19 @@ class LSTR0Corrections(CameraR0Calibrator):
                 self.pedestal_value_array[:, :, self.size4drs:self.size4drs + 40] \
                     = pedestal_data[:, :, 0:40] - self.offset
 
+        if self.dt_params_path:
+            params_data = open(self.dt_params_path, 'r')
+            content = params_data.read()
+            lines = content.split('\n')
+            for iline in lines:
+                module = int(iline.split()[0])
+                pix = int(iline.split()[1])
+                gain = int(iline.split()[2])
+                a = float(iline.split()[3])
+                b = float(iline.split()[5])
+                c = float(iline.split()[7])
+                self.dt_params_array[gain, module, pix] = np.array([a, b, c])
+
     def _get_first_capacitor(self, event, nr_module):
         """
         Get first capacitor values from event for nr module.
@@ -322,7 +342,7 @@ def subtract_pedestal_jit(event_waveform, expected_pixel_id, fc_cap, pedestal_va
     return waveform
 
 @jit(parallel=True)
-def do_time_lapse_corr(waveform, expected_pixel_id, local_clock_list, fc, last_time_array, number_of_modules, a, b, c):
+def do_time_lapse_corr(waveform, expected_pixel_id, local_clock_list, fc, last_time_array, number_of_modules):
     """
     Numba function for time lapse baseline correction.
     Change waveform array.
@@ -333,6 +353,7 @@ def do_time_lapse_corr(waveform, expected_pixel_id, local_clock_list, fc, last_t
         for gain in prange(0, 2):
             for pix in prange(0, 7):
                 pixel = expected_pixel_id[nr_module*7 + pix]
+                dt_params = self.dt_params_array[gain, nr_module, pix]
                 for k in prange(0, 40):
                     posads = int((k + fc[nr_module, gain, pix]) % size4drs)
                     if last_time_array[nr_module, gain, pix, posads] > 0:
@@ -340,11 +361,12 @@ def do_time_lapse_corr(waveform, expected_pixel_id, local_clock_list, fc, last_t
                         time_diff_ms = time_diff / (133.e3)
                         '''
                         if time_diff_ms < 100:
-                            val = waveform[gain, pixel, k] - ped_time(time_diff_ms)
+                            val = waveform[gain, pixel, k] - ped_time(time_diff_ms, a, b, c)
                             waveform[gain, pixel, k] = val
                         '''
-                        val = waveform[gain, pixel, k] - ped_time(time_diff_ms, a, b, c)
+                        val = waveform[gain, pixel, k] - ped_time(time_diff_ms, dt_params[0], dt_params[1], dt_params[2])
                         waveform[gain, pixel, k] = val
+
                 posads0 = int((0 + fc[nr_module, gain, pix]) % size4drs)
                 if posads0+40 < 4096:
                     last_time_array[nr_module, gain, pix, posads0:(posads0+39)] = time_now
@@ -375,7 +397,7 @@ def ped_time(timediff, a, b, c):
     Coefficients from curve fitting to dragon test data
     at temperature 30 degC
     """
-    return a * np.power(timediff, -b) + c
+    return a * np.power(timediff, -b) - c
     #return 27.33 * np.power(timediff, -0.24) - 10.4
     #return (23.03 * np.power(timediff, -0.25) - 9.73)  # for 40degC
 
