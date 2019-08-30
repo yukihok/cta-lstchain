@@ -292,7 +292,6 @@ class LSTR0Corrections(CameraR0Calibrator):
             content = params_data.read()
             lines = content.split('\n')
             for iline in lines:
-                print(iline)
                 module = int(iline.split()[0])
                 pix = int(iline.split()[1])
                 gain = int(iline.split()[2])
