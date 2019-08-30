@@ -117,7 +117,7 @@ class LSTR0Corrections(CameraR0Calibrator):
         self.low_gain = 1
 
         self.pedestal_value_array = np.zeros((self.n_gain, self.n_pix*self.n_module, self.size4drs+40), dtype=np.int16)
-        self.dt_params_array = np.zeros((self.n_gain, self.n_pix * self.n_module, 3))
+        self.dt_params_array = np.zeros((self.n_gain, self.n_module, self.n_pix, 3))
         self.first_cap_array = np.zeros((self.n_module, self.n_gain, self.n_pix))
 
         self.first_cap_time_lapse_array = np.zeros((self.n_module, self.n_gain, self.n_pix))
