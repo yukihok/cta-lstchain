@@ -167,7 +167,7 @@ class LSTR0Corrections(CameraR0Calibrator):
         event.r1.tel[self.tel_id].trigger_time = event.r1.tel[self.tel_id].trigger_time
         event.r1.tel[self.tel_id].waveform = samples[:, :, :]
 
-    def time_lapse_corr(self, event):
+    def time_lapse_corr(self, event, manual, a, b, c):
         """
         Perform time lapse baseline corrections.
         Fill the R1 container or
@@ -185,7 +185,8 @@ class LSTR0Corrections(CameraR0Calibrator):
         #If R1 container exist modifies it
         if isinstance(event.r1.tel[self.tel_id].waveform, np.ndarray):
             samples = event.r1.tel[self.tel_id].waveform
-            do_time_lapse_corr(samples, expected_pixel_id, local_clock_list, self.first_cap_time_lapse_array, self.last_reading_time_array, n_modules, self.dt_params_array)
+            do_time_lapse_corr(samples, expected_pixel_id, local_clock_list, self.first_cap_time_lapse_array,
+                               self.last_reading_time_array, n_modules, self.dt_params_array, manual, a, b, c)
             event.r1.tel[self.tel_id].trigger_type = event.r0.tel[self.tel_id].trigger_type
             event.r1.tel[self.tel_id].trigger_time = event.r0.tel[self.tel_id].trigger_time
             event.r1.tel[self.tel_id].waveform = samples[:, :, :]
@@ -340,7 +341,8 @@ def subtract_pedestal_jit(event_waveform, expected_pixel_id, fc_cap, pedestal_va
     return waveform
 
 @jit(parallel=True)
-def do_time_lapse_corr(waveform, expected_pixel_id, local_clock_list, fc, last_time_array, number_of_modules, dt_params_array):
+def do_time_lapse_corr(waveform, expected_pixel_id, local_clock_list, fc, last_time_array, number_of_modules,
+                       dt_params_array, manual, a, b, c):
     """
     Numba function for time lapse baseline correction.
     Change waveform array.
@@ -357,13 +359,14 @@ def do_time_lapse_corr(waveform, expected_pixel_id, local_clock_list, fc, last_t
                     if last_time_array[nr_module, gain, pix, posads] > 0:
                         time_diff = time_now - last_time_array[nr_module, gain, pix, posads]
                         time_diff_ms = time_diff / (133.e3)
-                        '''
                         if time_diff_ms < 100:
-                            val = waveform[gain, pixel, k] - ped_time(time_diff_ms, a, b, c)
-                            waveform[gain, pixel, k] = val
-                        '''
-                        val = waveform[gain, pixel, k] - ped_time(time_diff_ms, dt_params[0], dt_params[1], dt_params[2])
-                        waveform[gain, pixel, k] = val
+                            if manual:
+                                #print('correction done', time_diff_ms, 'ms')
+                                val = waveform[gain, pixel, k] - ped_time(time_diff_ms, a, b, c)
+                                waveform[gain, pixel, k] = val
+                            else:
+                                val = waveform[gain, pixel, k] - ped_time(time_diff_ms, dt_params[0], dt_params[1], dt_params[2])
+                                waveform[gain, pixel, k] = val
 
                 posads0 = int((0 + fc[nr_module, gain, pix]) % size4drs)
                 if posads0+40 < 4096:
