@@ -372,8 +372,8 @@ def ped_time(timediff):
     at temperature 30 degC
     """
 
-    #return 27.33 * np.power(timediff, -0.24) - 10.4
-    return (23.03 * np.power(timediff, -0.25) - 9.73)  # for 40degC
+    return 27.33 * np.power(timediff, -0.24) - 10.4
+    #return (23.03 * np.power(timediff, -0.25) - 9.73)  # for 40degC
 
 @jit
 def interpolate_spike_A(waveform, gain, position, pixel):
