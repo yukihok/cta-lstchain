@@ -17,7 +17,7 @@ class Integrators:
         if self.data_type == 'mc':
             self.ind = np.arange(0, 40, 1)  # for MC data
 
-    @jit(parallel=True)
+    @jit(nopython=True)
     def set_slidecenter(self, waveforms, oneside_width):
 
         full_width = oneside_width * 2 + 1
@@ -84,24 +84,30 @@ class Integrators:
 
     def timing_integrate(self, waveforms, timing, width):
 
-        half_width = width / 2
+        half_width = (width-1) / 2
         left_edge = timing - half_width
         right_edge = timing + half_width
+
         left_inner = np.ceil(left_edge)
         right_inner = np.floor(right_edge)
+
         inner_window = (self.ind >= left_inner[..., None]) & (self.ind <= right_inner[..., None])
-        inner_sum = np.sum(waveforms * inner_window, axis = 2)
+        inner_sum = np.sum(waveforms * inner_window, axis=2)
+
         left_outer_window = self.set_window(left_inner, 0, 0)
         left_outer_time = left_inner - left_edge
-        left_outer_amp = np.sum(waveforms * left_outer_window, axis = 2)
+        left_outer_amp = np.sum(waveforms * left_outer_window, axis=2)
         left_outer = left_outer_amp * left_outer_time
+
         right_outer_window = self.set_window(right_inner, 0, 0)
         right_outer_time = right_inner - right_edge
-        right_outer_amp = np.sum(waveforms * right_outer_window, axis = 2)
+        right_outer_amp = np.sum(waveforms * right_outer_window, axis=2)
         right_outer = right_outer_amp * right_outer_time
-        charge = inner_sum + left_outer + right_outer
 
-        return charge, left_edge, right_edge
+        charge = inner_sum + left_outer + right_outer
+        window = inner_window + left_outer_window + right_outer_window
+
+        return charge, window
 
     def subtract_offset(self, waveforms, shift):
 
