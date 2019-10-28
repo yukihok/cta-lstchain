@@ -17,14 +17,15 @@ class Integrators:
         if self.data_type == 'mc':
             self.ind = np.arange(0, 40, 1)  # for MC data
 
-    @jit(nopython=True)
-    def set_slidecenter(self, waveforms, oneside_width):
+    @jit
+    def set_slidecenter_around_peak(self, waveforms, full_width):
 
-        full_width = oneside_width * 2 + 1
+        oneside_width = (full_width - 1)/2
         peakpos = np.argmax(waveforms, axis = 2)
         slide_start = peakpos - self.start_offset
-        slide_max = np.zeros((self.num_gains, self.num_pixels), dtype=np.int8)
-        window_center = np.zeros((self.num_gains, self.num_pixels), dtype=np.int8)
+        slide_max = np.zeros((self.num_gains, self.num_pixels), dtype=np.int32)
+        window_center = np.zeros((self.num_gains, self.num_pixels), dtype=np.int32)
+        
         for num_slide in range(0, self.slide_ite):
             front = slide_start + num_slide
             end = front + full_width
@@ -36,10 +37,32 @@ class Integrators:
 
         return window_center
 
+    @jit
+    def set_slidecenter_with_range(self, waveforms, full_width, start_cell, num_ite):
+ 
+        oneside_width = (full_width - 1)/2
+        slide_start = np.zeros((self.num_gains, self.num_pixels)) + start_cell
+        slide_max = np.zeros((self.num_gains, self.num_pixels), dtype=np.int32)
+        window_center = np.zeros((self.num_gains, self.num_pixels), dtype=np.int32)
+        
+        for num_slide in range(0, num_ite):
+            front = slide_start + num_slide
+            end = front + full_width
+            slide_window = (self.ind >= front[..., None]) & (self.ind < end[..., None])
+            cur_slide_sum = np.sum(waveforms * slide_window, axis = 2)
+            to_be_replaced = cur_slide_sum > slide_max
+            window_center = window_center * ~to_be_replaced + (front + oneside_width) * to_be_replaced
+            slide_max = slide_max * ~to_be_replaced + cur_slide_sum * to_be_replaced
+            
+        return window_center
+        
     def set_window(self, center, fwidth, bwidth):
 
         window = (self.ind >= center[..., None] - fwidth) & (self.ind <= center[..., None] + bwidth)
 
+        #if (np.any(center[..., None] - fwidth < 0) or np.any(center[..., None] + bwidth >= self.ind.shape[0])):
+            #print('window is out of ROI!')
+        
         return window
 
     def sliding_integration(self, waveforms, oneside_width):
@@ -51,11 +74,21 @@ class Integrators:
 
         return windowed, charge
 
+    def effective_charge_diff(self, old_waveforms, integral_time, width, center, fwidth, bwidth):
+        
+        edge_window = np.logical_or((self.ind == center[..., None] - fwidth),
+                                    (self.ind == center[..., None] + bwidth))
+        edge_charge = np.sum(old_waveforms * edge_window, axis=2)/2
+        time_diff = integral_time - width
+        diff_charge = edge_charge * time_diff
+        
+        return diff_charge
 
     def trapezoid_integration(self, waveforms, center, fwidth, bwidth):
 
         inner_window = self.set_window(center, fwidth - 1, bwidth - 1)
-        edge_window = np.logical_or((self.ind == center[..., None] - fwidth), (self.ind == center[..., None] + bwidth))
+        edge_window = np.logical_or((self.ind == center[..., None] - fwidth),
+                                    (self.ind == center[..., None] + bwidth))
         inner_windowed = waveforms * inner_window
         edge_windowed = waveforms * edge_window
         total_windowed = inner_windowed + edge_windowed

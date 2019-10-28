@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from numba import prange
+from numba import jit, prange
 
 
 class DRSTimingCalibrator:
@@ -29,16 +29,17 @@ class DRSTimingCalibrator:
                     dt_samples = df[[column]].values.reshape(self.ringsize)
                     self.sample_interval[igain, ipix, :] = dt_samples
 
-    def reorder_first_caps(self, event, first_caps, mod):
+    @jit
+    def calc_sample_interval(self, event, first_caps):
 
         n_pix = 7
+        n_mod = 265
         expected_pixel_id = event.lst.tel[self.tel_id].svc.pixel_ids
-        for ipix in prange(n_pix):
-            hard_pix = mod * n_pix + ipix
-            spiral_pix = expected_pixel_id[hard_pix]
-            self.spiral_first_caps[:, spiral_pix] = first_caps[mod][:, ipix]
-
-    def calibrate(self, event):
+        for imod in prange(n_mod):
+            for ipix in prange(n_pix):
+                hard_pix = imod * n_pix + ipix
+                spiral_pix = expected_pixel_id[hard_pix]
+                self.spiral_first_caps[:, spiral_pix] = first_caps[imod][:, ipix]
 
         mod_first_caps = np.array(self.spiral_first_caps % self.ringsize, dtype='int16')
         ind = np.arange(0, self.ringsize, 1)
@@ -50,4 +51,10 @@ class DRSTimingCalibrator:
         sample_interval_in_roi = self.sample_interval * total_caps_in_roi
         sample_interval_in_roi = \
             sample_interval_in_roi[sample_interval_in_roi > 0].reshape(self.num_gains, self.num_pixels, self.roisize)
-        event.r1.tel[self.tel_id].waveform = event.r1.tel[self.tel_id].waveform * sample_interval_in_roi
+        
+        return sample_interval_in_roi
+
+
+
+
+        
