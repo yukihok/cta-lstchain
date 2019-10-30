@@ -23,14 +23,35 @@ class Integrators:
         oneside_width = (full_width - 1)/2
         peakpos = np.argmax(waveforms, axis = 2)
         slide_start = peakpos - self.start_offset
-        slide_max = np.zeros((self.num_gains, self.num_pixels), dtype=np.int32)
-        window_center = np.zeros((self.num_gains, self.num_pixels), dtype=np.int32)
+        slide_max = np.zeros((self.num_gains, self.num_pixels), dtype=np.int16)
+        window_center = np.zeros((self.num_gains, self.num_pixels), dtype=np.int16)
         
         for num_slide in range(0, self.slide_ite):
             front = slide_start + num_slide
             end = front + full_width
             slide_window = (self.ind >= front[..., None]) & (self.ind < end[..., None])
-            cur_slide_sum = np.sum(waveforms * slide_window, axis = 2)
+            cur_slide_sum = np.sum(waveforms * slide_window, axis=2)
+            to_be_replaced = cur_slide_sum > slide_max
+            window_center = window_center * ~to_be_replaced + (front + oneside_width) * to_be_replaced
+            slide_max = slide_max * ~to_be_replaced + cur_slide_sum * to_be_replaced
+
+        return window_center
+    
+    @jit
+    def set_trapezoid_slidecenter_around_peak(self, waveforms, full_width):
+
+        oneside_width = (full_width - 1)/2
+        peakpos = np.argmax(waveforms, axis = 2)
+        slide_start = peakpos - self.start_offset
+        slide_max = np.zeros((self.num_gains, self.num_pixels), dtype=np.int16)
+        window_center = np.zeros((self.num_gains, self.num_pixels), dtype=np.int16)
+        
+        for num_slide in range(0, self.slide_ite):
+            front = slide_start + num_slide
+            end = front + full_width
+            slide_window_internal = (self.ind > front[..., None]) & (self.ind < end[..., None])
+            slide_window_edge = (self.ind == front[..., None]) & (self.ind == end[..., None])
+            cur_slide_sum = np.sum(waveforms * slide_window_internal + wavefomrs * slide_center_edge / 2, axis=2)
             to_be_replaced = cur_slide_sum > slide_max
             window_center = window_center * ~to_be_replaced + (front + oneside_width) * to_be_replaced
             slide_max = slide_max * ~to_be_replaced + cur_slide_sum * to_be_replaced
@@ -42,14 +63,14 @@ class Integrators:
  
         oneside_width = (full_width - 1)/2
         slide_start = np.zeros((self.num_gains, self.num_pixels)) + start_cell
-        slide_max = np.zeros((self.num_gains, self.num_pixels), dtype=np.int32)
-        window_center = np.zeros((self.num_gains, self.num_pixels), dtype=np.int32)
+        slide_max = np.zeros((self.num_gains, self.num_pixels), dtype=np.int16)
+        window_center = np.zeros((self.num_gains, self.num_pixels), dtype=np.int16)
         
         for num_slide in range(0, num_ite):
             front = slide_start + num_slide
             end = front + full_width
             slide_window = (self.ind >= front[..., None]) & (self.ind < end[..., None])
-            cur_slide_sum = np.sum(waveforms * slide_window, axis = 2)
+            cur_slide_sum = np.sum(waveforms * slide_window, axis=2)
             to_be_replaced = cur_slide_sum > slide_max
             window_center = window_center * ~to_be_replaced + (front + oneside_width) * to_be_replaced
             slide_max = slide_max * ~to_be_replaced + cur_slide_sum * to_be_replaced
@@ -67,8 +88,8 @@ class Integrators:
 
     def sliding_integration(self, waveforms, oneside_width):
 
-        center = self.set_slidecenter(waveforms, oneside_width)
-        window = self.set_window(center, fwidth = oneside_width, bwidth = oneside_width)
+        center = self.set_slidecenter_around_peak(waveforms, oneside_width)
+        window = self.set_window(center, fwidth=oneside_width, bwidth=oneside_width)
         windowed = waveforms * window
         charge = np.sum(windowed, axis = 2)
 
