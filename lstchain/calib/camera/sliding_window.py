@@ -81,13 +81,9 @@ class Integrators:
 
         window = (self.ind >= center[..., None] - fwidth) & (self.ind <= center[..., None] + bwidth)
 
-        if (np.any(center[..., None] - fwidth < 0) or np.any(center[..., None] + bwidth >= self.ind.shape[0])):
-            print('window is out of ROI!')
+        #if (np.any(center[..., None] - fwidth < 0) or np.any(center[..., None] + bwidth >= self.ind.shape[0])):
+            #print('window is out of ROI!')
         
-        if np.any(np.sum(window, axis=2) != fwidth + bwidth + 1):
-            print('Error in setting window')
-        print(center[0, 0])
-        print(window[0, 0])
         return window
 
     def sliding_integration(self, waveforms, full_width):
