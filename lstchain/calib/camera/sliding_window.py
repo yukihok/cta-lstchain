@@ -51,7 +51,7 @@ class Integrators:
             end = front + full_width
             slide_window_internal = (self.ind > front[..., None]) & (self.ind < end[..., None])
             slide_window_edge = (self.ind == front[..., None]) & (self.ind == end[..., None])
-            cur_slide_sum = np.sum(waveforms * slide_window_internal + wavefomrs * slide_center_edge / 2, axis=2)
+            cur_slide_sum = np.sum(waveforms * slide_window_internal + waveforms * slide_window_edge / 2, axis=2)
             to_be_replaced = cur_slide_sum > slide_max
             window_center = window_center * ~to_be_replaced + (front + oneside_width) * to_be_replaced
             slide_max = slide_max * ~to_be_replaced + cur_slide_sum * to_be_replaced
