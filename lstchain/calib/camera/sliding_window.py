@@ -86,12 +86,13 @@ class Integrators:
         
         return window
 
-    def sliding_integration(self, waveforms, oneside_width):
+    def sliding_integration(self, waveforms, full_width):
 
-        center = self.set_slidecenter_around_peak(waveforms, oneside_width)
+        oneside_width = (full_width - 1)/2
+        center = self.set_slidecenter_around_peak(waveforms, full_width)
         window = self.set_window(center, fwidth=oneside_width, bwidth=oneside_width)
         windowed = waveforms * window
-        charge = np.sum(windowed, axis = 2)
+        charge = np.sum(windowed, axis=2)
 
         return windowed, charge
 
@@ -113,8 +114,8 @@ class Integrators:
         inner_windowed = waveforms * inner_window
         edge_windowed = waveforms * edge_window
         total_windowed = inner_windowed + edge_windowed
-        inner_sum = np.sum(inner_windowed, axis = 2)
-        edge_sum = np.sum(edge_windowed, axis = 2) / 2
+        inner_sum = np.sum(inner_windowed, axis=2)
+        edge_sum = np.sum(edge_windowed, axis=2)/2
         charge = inner_sum + edge_sum
 
         return total_windowed, charge
