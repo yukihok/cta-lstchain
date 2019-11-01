@@ -2,6 +2,7 @@ import numpy as np
 import math
 from numba import jit
 
+
 class Integrators:
     
     def __init__(self, tel_id, data_type):
@@ -97,9 +98,10 @@ class Integrators:
         return windowed, charge
 
     def effective_charge_diff(self, old_waveforms, integral_time, width, center, fwidth, bwidth):
-        
+
+        # trapezoidal integration is assumed.
         edge_window = np.logical_or((self.ind == center[..., None] - fwidth),
-                                    (self.ind == center[..., None] + bwidth))
+                                    (self.ind == center[..., None] + bwidth + 1))
         edge_charge = np.sum(old_waveforms * edge_window, axis=2)/2
         time_diff = integral_time - width
         diff_charge = edge_charge * time_diff
