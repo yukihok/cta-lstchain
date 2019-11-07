@@ -9,7 +9,7 @@ class Integrators:
         
         self.tel_id = tel_id
         self.start_offset = 6
-        self.slide_ite = 10
+        self.slide_ite = 7
         self.num_gains = 2
         self.num_pixels = 1855
         self.data_type = data_type
@@ -110,9 +110,12 @@ class Integrators:
 
     def trapezoid_integration(self, waveforms, center, fwidth, bwidth):
 
-        inner_window = self.set_window(center, fwidth - 1, bwidth - 1)
+        # A bit complicated because 'center' deceided by set_trapezoid_slidecenter_around_peak
+        # is not exactly center for trapezoid integration.
+        # Exact center is between two samples...
+        inner_window = self.set_window(center, fwidth - 1, bwidth)
         edge_window = np.logical_or((self.ind == center[..., None] - fwidth),
-                                    (self.ind == center[..., None] + bwidth))
+                                    (self.ind == center[..., None] + bwidth + 1))
         inner_windowed = waveforms * inner_window
         edge_windowed = waveforms * edge_window
         total_windowed = inner_windowed + edge_windowed
