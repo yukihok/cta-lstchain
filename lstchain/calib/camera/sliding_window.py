@@ -116,6 +116,7 @@ class Integrators:
         inner_window = self.set_window(center, fwidth - 1, bwidth)
         edge_window = np.logical_or((self.ind == center[..., None] - fwidth),
                                     (self.ind == center[..., None] + bwidth + 1))
+        total_window = inner_window + edge_window
         inner_windowed = waveforms * inner_window
         edge_windowed = waveforms * edge_window
         total_windowed = inner_windowed + edge_windowed
@@ -123,7 +124,7 @@ class Integrators:
         edge_sum = np.sum(edge_windowed, axis=2)/2
         charge = inner_sum + edge_sum
 
-        return total_windowed, charge
+        return total_window, charge
 
     def calc_peak_slice(self, waveforms, center, fwidth, bwidth):
 
