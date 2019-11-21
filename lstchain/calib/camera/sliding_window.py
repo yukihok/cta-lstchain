@@ -8,7 +8,7 @@ class Integrators:
     def __init__(self, tel_id, data_type):
         
         self.tel_id = tel_id
-        self.start_offset = 6
+        #self.start_offset = 6
         self.slide_ite = 7
         self.num_gains = 2
         self.num_pixels = 1855
@@ -39,11 +39,11 @@ class Integrators:
         return window_center
     
     @jit
-    def set_trapezoid_slidecenter_around_peak(self, waveforms, full_width):
+    def set_trapezoid_slidecenter_around_peak(self, waveforms, full_width, start_offset):
 
         oneside_width = (full_width - 1)/2
         peakpos = np.argmax(waveforms, axis = 2)
-        slide_start = peakpos - self.start_offset
+        slide_start = peakpos - start_offset
         slide_max = np.zeros((self.num_gains, self.num_pixels), dtype=np.int16)
         window_center = np.zeros((self.num_gains, self.num_pixels), dtype=np.int16)
         
