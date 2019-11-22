@@ -13,9 +13,17 @@ class DRSTimingCalibrator:
         self.num_gains = 2
         self.num_pixels = 1855
         self.spiral_first_caps = np.zeros((self.num_gains, self.num_pixels))
+        # 1e6 is added temporalily to avoid samping interval being zero.
+        self.sample_interval = pd.read_pickle(table_path) + 1e-6
+
+        # don't use pixels with no TP data
+        self.exceptional_pixels = [206,207,258,259,260,317,318,342,343,409,410,411,483,484,696,697,790,791,792,891,892,1502,1503,1616,1617,1618,1713,1714]
+        for ipix in self.exceptional_pixels:
+            self.sample_interval[:, ipix, :] = np.ones((self.num_gains, self.ringsize))
+        '''
+        # in case of reading text file
         self.sample_interval = np.ones((self.num_gains, self.num_pixels, self.ringsize))
         df = pd.read_csv(table_path, sep=' ')
-
         for igain in range(self.num_gains):
 
             if igain == 0:
@@ -28,6 +36,7 @@ class DRSTimingCalibrator:
                 if column in df.columns:
                     dt_samples = df[[column]].values.reshape(self.ringsize)
                     self.sample_interval[igain, ipix, :] = dt_samples
+        '''
 
     @jit
     def calc_sample_interval(self, event, first_caps):
@@ -50,7 +59,9 @@ class DRSTimingCalibrator:
         total_caps_in_roi = caps_in_roi + residual_caps_in_roi
         sample_interval_in_roi = self.sample_interval * total_caps_in_roi
         sample_interval_in_roi = \
-            sample_interval_in_roi[sample_interval_in_roi > 0].reshape(self.num_gains, self.num_pixels, self.roisize)
+            sample_interval_in_roi[sample_interval_in_roi > 0].reshape(
+                self.num_gains, self.num_pixels, self.roisize
+            )
         
         return sample_interval_in_roi
 
