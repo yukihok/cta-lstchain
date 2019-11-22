@@ -13,7 +13,9 @@ class Integrators:
         self.num_pixels = 1855
         self.data_type = data_type
         if self.data_type == 'real':
-            self.ind = np.arange(2, 38, 1)  # for real data
+            self.start_slice = 2
+            self.end_slice = 38
+            self.ind = np.arange(self.start_slice, self.end_slice, 1)  # for real data
         if self.data_type == 'mc':
             self.ind = np.arange(0, 40, 1)  # for MC data
 
@@ -47,6 +49,7 @@ class Integrators:
         window_center = np.zeros((self.num_gains, self.num_pixels), dtype=np.int16)
         
         for num_slide in range(ite):
+
             front = slide_start + num_slide
             end = front + full_width
             slide_window_internal = (self.ind > front[..., None]) & (self.ind < end[..., None])
@@ -96,16 +99,25 @@ class Integrators:
 
         return windowed, charge
 
-    def effective_charge_diff(self, old_waveforms, integral_time, width, center, fwidth, bwidth):
+    def effective_charge_diff(self, old_waveforms, sampling_interval, width, center, fwidth, bwidth):
 
         # trapezoidal integration is assumed.
+        # calculate effective sampling interval
+        inner_integral_time = np.sum(
+            self.set_window(center, fwidth=fwidth - 1, bwidth=bwidth)
+            * sampling_interval[:, :, self.start_slice:self.end_slice],
+            axis=2)
+        residual = inner_integral_time - (width - 2)  # approximation
+        integral_time = inner_integral_time + residual
+
+        # calculate charge difference to be corrected
         edge_window = np.logical_or((self.ind == center[..., None] - fwidth),
                                     (self.ind == center[..., None] + bwidth + 1))
-        edge_charge = np.sum(old_waveforms * edge_window, axis=2)/2
+        edge_charge = np.sum(old_waveforms * edge_window, axis=2)
         time_diff = integral_time - width
-        diff_charge = edge_charge * time_diff
+        diff_charge = edge_charge * (time_diff/2)
         
-        return diff_charge
+        return integral_time, diff_charge
 
     def trapezoid_integration(self, waveforms, center, fwidth, bwidth):
 
