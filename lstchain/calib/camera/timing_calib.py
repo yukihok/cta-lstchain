@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from numba import jit, prange
+from ctapipe_io_lst import LSTEventSource
 
 
 class DRSTimingCalibrator:
@@ -13,14 +14,32 @@ class DRSTimingCalibrator:
         self.num_gains = 2
         self.num_pixels = 1855
         self.spiral_first_caps = np.zeros((self.num_gains, self.num_pixels))
-        # 1e6 is added temporalily to avoid sampling interval being zero.
-        self.sample_interval = pd.read_pickle(table_path) + 1e-6
+        # 1e6 is added temporalily to avoid sampling interval being zero if needed.
+        self.sample_interval = pd.read_pickle(table_path)
+
+        # just to obtain "pixel_ids"...
+        '''
+        run = '00653'
+        subrun = '0000'
+        ff_input_url = '/Users/Yukiho/Work/CTA/Analysis/calibration/RealCalib/RealData/LST-1.*.RunRunNo.SubRun.fits.fz'
+        ff_input_url = ff_input_url.replace('RunNo', run)
+        ff_input_url = ff_input_url.replace('SubRun', subrun)
+        max_events = 1
+        reader = LSTEventSource(input_url=ff_input_url, max_events=max_events)
+        for event in reader:
+            continue
+
+        pixel_ids = event.lst.tel[self.tel_id].svc.pixel_ids
 
         # don't use pixels with no TP data
-        self.exceptional_pixels = [206, 207, 258, 259, 260, 317, 318, 342, 343, 409, 410, 411, 483, 484, 696, 697, 790,
-                                   791, 792, 891, 892, 1502, 1503, 1616, 1617, 1618, 1713, 1714]
-        for ipix in self.exceptional_pixels:
-            self.sample_interval[:, ipix, :] = np.ones((self.num_gains, self.ringsize))
+        self.exceptional_pixel_ids = [206, 207, 258, 259, 260, 317, 318, 342, 343, 409, 410, 411, 483, 484, 696, 697,
+                                      790, 791, 792, 891, 892, 1502, 1503, 1616, 1617, 1618, 1713, 1714]
+        for ipix in self.exceptional_pixel_ids:
+
+            waveform_pix = int(np.where(pixel_ids == ipix)[0])
+            self.sample_interval[:, waveform_pix, :] = np.ones((self.num_gains, self.ringsize))
+
+        '''
         '''
         # in case of reading text file
         self.sample_interval = np.ones((self.num_gains, self.num_pixels, self.ringsize))
