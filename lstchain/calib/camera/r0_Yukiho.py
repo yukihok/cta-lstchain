@@ -348,6 +348,8 @@ def do_time_lapse_corr(waveform, expected_pixel_id, local_clock_list, fc, last_t
     Change waveform array.
     """
     size4drs = 4096
+    sizeroi = 40
+
     for nr_module in prange(0, number_of_modules):
         time_now = local_clock_list[nr_module]
         for gain in prange(0, 2):
@@ -369,10 +371,16 @@ def do_time_lapse_corr(waveform, expected_pixel_id, local_clock_list, fc, last_t
                                 waveform[gain, pixel, k] = val
 
                 posads0 = int((0 + fc[nr_module, gain, pix]) % size4drs)
+                '''
                 if posads0+40 < 4096:
-                    last_time_array[nr_module, gain, pix, posads0:(posads0+39)] = time_now
+                    #last_time_array[nr_module, gain, pix, posads0:(posads0+39)] = time_now
+                '''
+                # for old firmware before November 2019
+                if posads0 + (sizeroi-1) < 4096 and (posads0-1) >= 0:
+                    last_time_array[nr_module, gain, pix, (posads0-1):(posads0 + (sizeroi-1))] = time_now
                 else:
-                    for k in prange(0, 39):
+                    #for k in prange(0, 39):
+                    for k in prange(-1, sizeroi-1):  # for old firmware before November 2019
                         posads = int((k + fc[nr_module, gain, pix]) % size4drs)
                         last_time_array[nr_module, gain, pix, posads] = time_now
 
