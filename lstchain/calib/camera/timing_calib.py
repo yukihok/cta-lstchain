@@ -15,7 +15,7 @@ class DRSTimingCalibrator:
         self.num_pixels = 1855
         self.spiral_first_caps = np.zeros((self.num_gains, self.num_pixels))
         # 1e6 is added temporalily to avoid sampling interval being zero if needed.
-        self.sample_interval = pd.read_pickle(table_path)
+        self.sample_interval = pd.read_pickle(table_path) + 1e-9
 
         # just to obtain "pixel_ids"...
         '''
